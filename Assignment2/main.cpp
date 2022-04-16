@@ -28,10 +28,43 @@ Eigen::Matrix4f get_model_matrix(float rotation_angle)
     return model;
 }
 
-Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio, float zNear, float zFar)
-{
-    // TODO: Copy-paste your implementation from the previous assignment.
-    Eigen::Matrix4f projection;
+Eigen::Matrix4f get_projection_matrix(
+    float eye_fovY, float aspect_ratio,
+    float zNear, float zFar
+) {
+    Eigen::Matrix4f projection = Eigen::Matrix4f::Identity();
+
+    float radian = (eye_fovY / 360.0f) * MY_PI;
+    float n = zNear, f = zFar;
+    float t = -tan(radian) * zNear;
+    float b = -t;
+    float r = t * aspect_ratio;
+    float l = -r;
+
+    Eigen::Matrix4f translate;
+    translate <<
+        1, 0, 0, -(l + r)/2.0f,
+        0, 1, 0, -(t + b)/2.0f,
+        0, 0, 1, -(n + f)/2.0f,
+        0, 0, 0, 1;
+
+    Eigen::Matrix4f scale;
+    scale <<
+        2.0f / (r - l), 0, 0, 0,
+        0, 2.0f / (t - b), 0, 0,
+        0, 0, 2.0f / (n - f), 0,
+        0, 0, 0, 1;
+
+    Eigen::Matrix4f ortho = scale * translate;
+
+    Eigen::Matrix4f perspective2ortho;
+    perspective2ortho <<
+        n, 0, 0, 0,
+        0, n, 0, 0,
+        0, 0, n + f, -n * f,
+        0, 0, 1, 0;
+
+    projection = ortho * perspective2ortho;
 
     return projection;
 }
@@ -42,13 +75,14 @@ int main(int argc, const char** argv)
     bool command_line = false;
     std::string filename = "output.png";
 
-    if (argc == 2)
+    rst::rasterizer r(700, 700);
+
+    if (argc >= 2)
     {
         command_line = true;
         filename = std::string(argv[1]);
+        r.set_msaa(std::stoi(argv[2]));
     }
-
-    rst::rasterizer r(700, 700);
 
     Eigen::Vector3f eye_pos = {0,0,5};
 
