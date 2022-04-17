@@ -193,9 +193,7 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
 
             // the number of inside triangle sample points on this pixel
             int inside_count = 0;
-
             float inside_triangle_sample_points_min_depth = std::numeric_limits<float>::infinity();
-            std::vector<int> inside_triangle_sample_point_idxs;
 
             // for each sample point inside current pixel
             for (int i = 0; i < sample_count; i++) {
@@ -215,7 +213,6 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
                             sample_depth_buf[pixel_idx][i],
                             z_interpolated
                         });
-                    inside_triangle_sample_point_idxs.push_back(i);
                     
                     if (sample_depth_buf[pixel_idx][i] > z_interpolated) {
                         sample_depth_buf[pixel_idx][i] = z_interpolated;
@@ -233,16 +230,15 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
 
                 depth_buf[pixel_idx] = inside_triangle_sample_points_min_depth;
 
-                auto color = Eigen::Vector3f(0, 0, 0);
-                // averaging
-                for (auto idx: inside_triangle_sample_point_idxs) {
-                    color += (1.0 / inside_triangle_sample_point_idxs.size()) * sample_frame_buf[pixel_idx][idx];
+                // averaging each sample points inside current pixel
+                auto average_color = Eigen::Vector3f(0, 0, 0);
+                for (auto c: sample_frame_buf[pixel_idx]) {
+                    average_color += (c / sample_count);
                 }
-                auto a = inside_count * 1.0f / sample_count;
-                // auto new_color = rgba(color, a);
-                auto new_color = color * a;
-
-                // TODO: set_pixel don't need z value ?
+                // decrease the final color base on how many sample points are
+                // actually inside triangle
+                auto a = 1.0f * inside_count / sample_count;
+                auto new_color = average_color * a;
                 set_pixel(Eigen::Vector3f(x, y, 0), new_color); // set frame_buf
             }
         }
