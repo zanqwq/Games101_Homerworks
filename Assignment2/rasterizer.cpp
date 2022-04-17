@@ -194,11 +194,8 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
             // the number of inside triangle sample points on this pixel
             int inside_count = 0;
 
-            // the min depth amongs inside triangle sample points
-            float inside_min_depth = std::numeric_limits<float>::infinity();
-
-            // the min depth idx amongs inside triangle sample points
-            int inside_min_depth_idx = -1;
+            float inside_triangle_sample_points_min_depth = std::numeric_limits<float>::infinity();
+            std::vector<int> inside_triangle_sample_point_idxs;
 
             // for each sample point inside current pixel
             for (int i = 0; i < sample_count; i++) {
@@ -212,13 +209,13 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
 
                 if (insideTriangle(sample_x, sample_y, t.v)) {
                     inside_count++;
-                    if (
-                        inside_min_depth > sample_depth_buf[pixel_idx][i] ||
-                        inside_min_depth > z_interpolated
-                    ) {
-                        inside_min_depth = std::min({ inside_min_depth, sample_depth_buf[pixel_idx][i], z_interpolated });
-                        inside_min_depth_idx = i;
-                    }
+                    inside_triangle_sample_points_min_depth =
+                        std::min({
+                            inside_triangle_sample_points_min_depth,
+                            sample_depth_buf[pixel_idx][i],
+                            z_interpolated
+                        });
+                    inside_triangle_sample_point_idxs.push_back(i);
                     
                     if (sample_depth_buf[pixel_idx][i] > z_interpolated) {
                         sample_depth_buf[pixel_idx][i] = z_interpolated;
@@ -230,15 +227,17 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
 
             if (
                 inside_count &&
-                inside_min_depth_idx != -1 &&
-                depth_buf[pixel_idx] > sample_depth_buf[pixel_idx][inside_min_depth_idx]
+                depth_buf[pixel_idx] > inside_triangle_sample_points_min_depth
             ) {
                 // printf("%f < %f\n", z_interpolated, depth_buf[idx]);
 
-                depth_buf[pixel_idx] = sample_depth_buf[pixel_idx][inside_min_depth_idx];
+                depth_buf[pixel_idx] = inside_triangle_sample_points_min_depth;
 
-                // auto color = t.getColor();
-                auto color = sample_frame_buf[pixel_idx][inside_min_depth_idx];
+                auto color = Eigen::Vector3f(0, 0, 0);
+                // averaging
+                for (auto idx: inside_triangle_sample_point_idxs) {
+                    color += (1.0 / inside_triangle_sample_point_idxs.size()) * sample_frame_buf[pixel_idx][idx];
+                }
                 auto a = inside_count * 1.0f / sample_count;
                 // auto new_color = rgba(color, a);
                 auto new_color = color * a;
