@@ -173,52 +173,78 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
     int int_y_min = (int)std::ceil(y_min), int_y_max = (int)std::floor(y_max);
 
     // use msaa_num * msaa_num sample points inside one pixel to do sample
-    float msaa_step = 1.0f / (msaa_num + 1);
-    int sample_count = msaa_num * msaa_num;
+    float interval = 1.0f / (msaa_num + 1);
 
-    auto rgba = [&](const Eigen::Vector3f rgb, float alpha) {
-        Eigen::Vector3f new_color = Eigen::Vector3f(rgb);
-        // do lerp(x, 255, 1 - alpha) on rgb
-        new_color[0] = new_color[0] + (255 - new_color[0]) * (1 - alpha);
-        new_color[1] = new_color[1] + (255 - new_color[1]) * (1 - alpha);
-        new_color[2] = new_color[2] + (255 - new_color[2]) * (1 - alpha);
-        return new_color;
-    };
+    // auto rgba = [&](const Eigen::Vector3f rgb, float alpha) {
+    //     Eigen::Vector3f new_color = Eigen::Vector3f(rgb);
+    //     // do lerp(x, 255, 1 - alpha) on rgb
+    //     new_color[0] = new_color[0] + (255 - new_color[0]) * (1 - alpha);
+    //     new_color[1] = new_color[1] + (255 - new_color[1]) * (1 - alpha);
+    //     new_color[2] = new_color[2] + (255 - new_color[2]) * (1 - alpha);
+    //     return new_color;
+    // };
 
+    // for each pixel in aabb
     for (int x = int_x_min; x <= int_x_max; x++) {
         for (int y = int_y_min; y <= int_y_max; y++) {
-            // msaa
+            auto pixel_idx = get_index(x, y);
+
+            /* do msaa */
+
+            // the number of inside triangle sample points on this pixel
             int inside_count = 0;
-            float min_depth = FLT_MAX;
-            for (int i = 1; i <= msaa_num; i++) {
-                for (int j = 1; j <= msaa_num; j++) {
-                    float sample_x = x + i * msaa_step;
-                    float sample_y = y + j * msaa_step;
-                    if (insideTriangle(sample_x, sample_y, t.v)) {
-                        inside_count++;
-                        auto [alpha, beta, gamma] = computeBarycentric2D(sample_x, sample_y, t.v);
-                        float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
-                        float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
-                        z_interpolated *= w_reciprocal;
-                        min_depth = std::min(min_depth, z_interpolated);
+
+            // the min depth amongs inside triangle sample points
+            float inside_min_depth = std::numeric_limits<float>::infinity();
+
+            // the min depth idx amongs inside triangle sample points
+            int inside_min_depth_idx = -1;
+
+            // for each sample point inside current pixel
+            for (int i = 0; i < sample_count; i++) {
+                float sample_x = x + ((i / msaa_num) + 1) * interval;
+                float sample_y = y + ((i % msaa_num) + 1) * interval;
+
+                auto [alpha, beta, gamma] = computeBarycentric2D(sample_x, sample_y, t.v);
+                float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
+                float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
+                z_interpolated *= w_reciprocal;
+
+                if (insideTriangle(sample_x, sample_y, t.v)) {
+                    inside_count++;
+                    if (
+                        inside_min_depth > sample_depth_buf[pixel_idx][i] ||
+                        inside_min_depth > z_interpolated
+                    ) {
+                        inside_min_depth = std::min({ inside_min_depth, sample_depth_buf[pixel_idx][i], z_interpolated });
+                        inside_min_depth_idx = i;
+                    }
+                    
+                    if (sample_depth_buf[pixel_idx][i] > z_interpolated) {
+                        sample_depth_buf[pixel_idx][i] = z_interpolated;
+                        sample_frame_buf[pixel_idx][i] = t.getColor();
                     }
                 }
+
             }
 
-            if (!inside_count) continue;
-
-            auto idx = get_index(x, y);
-            if (depth_buf[idx] > min_depth) {
+            if (
+                inside_count &&
+                inside_min_depth_idx != -1 &&
+                depth_buf[pixel_idx] > sample_depth_buf[pixel_idx][inside_min_depth_idx]
+            ) {
                 // printf("%f < %f\n", z_interpolated, depth_buf[idx]);
-                depth_buf[idx] = min_depth;
 
-                auto color = t.getColor();
-                auto a = inside_count * 1.0f / (sample_count);
+                depth_buf[pixel_idx] = sample_depth_buf[pixel_idx][inside_min_depth_idx];
+
+                // auto color = t.getColor();
+                auto color = sample_frame_buf[pixel_idx][inside_min_depth_idx];
+                auto a = inside_count * 1.0f / sample_count;
                 // auto new_color = rgba(color, a);
                 auto new_color = color * a;
 
                 // TODO: set_pixel don't need z value ?
-                set_pixel(Eigen::Vector3f(x, y, min_depth), new_color);
+                set_pixel(Eigen::Vector3f(x, y, 0), new_color); // set frame_buf
             }
         }
     }
@@ -244,10 +270,12 @@ void rst::rasterizer::clear(rst::Buffers buff)
     if ((buff & rst::Buffers::Color) == rst::Buffers::Color)
     {
         std::fill(frame_buf.begin(), frame_buf.end(), Eigen::Vector3f{0, 0, 0});
+        std::fill(sample_frame_buf.begin(), sample_frame_buf.end(), std::vector<Eigen::Vector3f>(sample_count, Eigen::Vector3f(0, 0, 0)));
     }
     if ((buff & rst::Buffers::Depth) == rst::Buffers::Depth)
     {
         std::fill(depth_buf.begin(), depth_buf.end(), std::numeric_limits<float>::infinity());
+        std::fill(sample_depth_buf.begin(), sample_depth_buf.end(), std::vector<float>(sample_count, std::numeric_limits<float>::infinity()));
     }
 }
 
@@ -255,6 +283,8 @@ rst::rasterizer::rasterizer(int w, int h) : width(w), height(h)
 {
     frame_buf.resize(w * h);
     depth_buf.resize(w * h);
+    sample_frame_buf.resize(w * h);
+    sample_depth_buf.resize(w * h);
 }
 
 int rst::rasterizer::get_index(int x, int y)
@@ -272,6 +302,7 @@ void rst::rasterizer::set_pixel(const Eigen::Vector3f& point, const Eigen::Vecto
 
 void rst::rasterizer::set_msaa(const int n) {
     msaa_num = n;
+    sample_count = n * n;
 }
 
 // clang-format on

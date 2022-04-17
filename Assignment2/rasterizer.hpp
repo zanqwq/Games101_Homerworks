@@ -87,14 +87,18 @@ namespace rst
         Eigen::Matrix4f view;
         Eigen::Matrix4f projection;
         int msaa_num = 1;
+        int sample_count = 1;
 
         std::map<int, std::vector<Eigen::Vector3f>> pos_buf;
         std::map<int, std::vector<Eigen::Vector3i>> ind_buf;
         std::map<int, std::vector<Eigen::Vector3f>> col_buf;
 
         std::vector<Eigen::Vector3f> frame_buf;
+        std::vector<std::vector<Eigen::Vector3f>> sample_frame_buf;
 
         std::vector<float> depth_buf;
+        // sample_depth_buf[i][j] store the depth buffer on the 'j' sample point of pixel 'i'
+        std::vector<std::vector<float>> sample_depth_buf;
         int get_index(int x, int y);
 
         int width, height;
