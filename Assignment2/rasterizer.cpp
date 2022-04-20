@@ -148,32 +148,22 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, ind_buf_id ind_buffer, col_buf
 // TODO: MSAA + understanding barycentric z interpolation
 void rst::rasterizer::rasterize_triangle(const Triangle& t) {
     auto v = t.toVector4();
-    // std::cout << "rasterize triangle: " << std::endl;
-    // std::cout << v[0] << std::endl << v[1] << std::endl << v[2] << std::endl;
-    float x_min = std::min({ v[0][0], v[1][0], v[2][0] });
-    float x_max = std::max({ v[0][0], v[1][0], v[2][0] });
-    float y_min = std::min({ v[0][1], v[1][1], v[2][1] });
-    float y_max = std::max({ v[0][1], v[1][1], v[2][1] });
 
     // TODO : Find out the bounding box of current triangle.
     // iterate through the pixel and find if the current pixel is inside the triangle
+    auto x_list = { v[0][0], v[1][0], v[2][0] };
+    float x_min = std::min(x_list);
+    float x_max = std::max(x_list);
 
-    // If so, use the following code to get the interpolated z value.
-    // auto[alpha, beta, gamma] = computeBarycentric2D(x, y, t.v);
-    // float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
-    // float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
-    // z_interpolated *= w_reciprocal;
-
-    // WTF? why should we interpolate this z value, rather than figure out the
-    // equation of the triangle pane and use it to compute an extract z value ?
-
-    // TODO : set the current pixel (use the set_pixel function) to the color of the triangle (use getColor function) if it should be painted.
+    auto y_list = { v[0][1], v[1][1], v[2][1] };
+    float y_min = std::min(y_list);
+    float y_max = std::max(y_list);
 
     int int_x_min = (int)std::ceil(x_min), int_x_max = (int)std::floor(x_max);
     int int_y_min = (int)std::ceil(y_min), int_y_max = (int)std::floor(y_max);
 
     // use msaa_num * msaa_num sample points inside one pixel to do sample
-    float interval = 1.0f / (msaa_num + 1);
+    float interval = 1.0f / msaa_num;
 
     // auto rgba = [&](const Eigen::Vector3f rgb, float alpha) {
     //     Eigen::Vector3f new_color = Eigen::Vector3f(rgb);
@@ -184,6 +174,23 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
     //     return new_color;
     // };
 
+    auto get_percentage_color = [&](const Eigen::Vector3f color, float percentage) {
+        std::vector<float> rgb{color[0], color[1], color[2]};
+        const float total = rgb[0] + rgb[1] + rgb[2];
+
+        // rgb is all 0
+        if (fabs(total - 0) < 0.00000001) return color;
+
+        auto diff = (percentage - 1) * total;
+        for (int i = 0; i < 3; i++) {
+            rgb[i] = rgb[i] + (rgb[i] / total) * diff;
+            if (diff < 0) rgb[i] = std::max(rgb[i], 0.0f);
+            else if (diff > 0) rgb[i] = std::min(rgb[i], 255.0f);
+        }
+        auto new_color = Eigen::Vector3f(rgb[0], rgb[1], rgb[2]);
+        return new_color;
+    };
+
     // for each pixel in aabb
     for (int x = int_x_min; x <= int_x_max; x++) {
         for (int y = int_y_min; y <= int_y_max; y++) {
@@ -193,13 +200,22 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
 
             // the number of inside triangle sample points on this pixel
             int inside_count = 0;
-            float inside_triangle_sample_points_min_depth = std::numeric_limits<float>::infinity();
 
             // for each sample point inside current pixel
             for (int i = 0; i < sample_count; i++) {
-                float sample_x = x + ((i / msaa_num) + 1) * interval;
-                float sample_y = y + ((i % msaa_num) + 1) * interval;
+                auto j = i / msaa_num;
+                auto k = i % msaa_num;
+                float sample_x = x + (0.5f + j) * interval;
+                float sample_y = y + (0.5f + k) * interval;
 
+                // If so, use the following code to get the interpolated z value.
+                // auto[alpha, beta, gamma] = computeBarycentric2D(x, y, t.v);
+                // float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
+                // float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
+                // z_interpolated *= w_reciprocal;
+
+                // WTF? why should we interpolate this z value, rather than figure out the
+                // equation of the triangle pane and use it to compute an extract z value ?
                 auto [alpha, beta, gamma] = computeBarycentric2D(sample_x, sample_y, t.v);
                 float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
                 float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
@@ -207,39 +223,20 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
 
                 if (insideTriangle(sample_x, sample_y, t.v)) {
                     inside_count++;
-                    inside_triangle_sample_points_min_depth =
-                        std::min({
-                            inside_triangle_sample_points_min_depth,
-                            sample_depth_buf[pixel_idx][i],
-                            z_interpolated
-                        });
-                    
                     if (sample_depth_buf[pixel_idx][i] > z_interpolated) {
                         sample_depth_buf[pixel_idx][i] = z_interpolated;
                         sample_frame_buf[pixel_idx][i] = t.getColor();
                     }
                 }
-
             }
 
-            if (
-                inside_count &&
-                depth_buf[pixel_idx] > inside_triangle_sample_points_min_depth
-            ) {
-                // printf("%f < %f\n", z_interpolated, depth_buf[idx]);
-
-                depth_buf[pixel_idx] = inside_triangle_sample_points_min_depth;
-
+            if (inside_count) {
                 // averaging each sample points inside current pixel
-                auto average_color = Eigen::Vector3f(0, 0, 0);
+                auto color = Eigen::Vector3f(0, 0, 0);
                 for (auto c: sample_frame_buf[pixel_idx]) {
-                    average_color += (c / sample_count);
+                    color += get_percentage_color(c, 1.0f / sample_count);
                 }
-                // decrease the final color base on how many sample points are
-                // actually inside triangle
-                auto a = 1.0f * inside_count / sample_count;
-                auto new_color = average_color * a;
-                set_pixel(Eigen::Vector3f(x, y, 0), new_color); // set frame_buf
+                set_pixel(Eigen::Vector3f(x, y, 0), color); // set frame_buf
             }
         }
     }
