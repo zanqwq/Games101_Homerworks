@@ -107,5 +107,10 @@ int main(){
     do_homework0();
     homework0_ref();
 
+    Eigen::Vector3f t, tt;
+    t << 1, 2, 3;
+    tt << 2, 4, 6;
+    auto ttt = t * tt;
+
     return 0;
 }

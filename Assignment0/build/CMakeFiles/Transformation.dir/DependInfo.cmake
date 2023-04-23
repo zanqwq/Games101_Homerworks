@@ -1,16 +1,14 @@
+
+# Consider dependencies only in project.
+set(CMAKE_DEPENDS_IN_PROJECT_ONLY OFF)
+
 # The set of languages for which implicit dependencies are needed:
 set(CMAKE_DEPENDS_LANGUAGES
-  "CXX"
   )
-# The set of files for implicit dependencies of each language:
-set(CMAKE_DEPENDS_CHECK_CXX
-  "/home/cs18/homework/Assignment0/main.cpp" "/home/cs18/homework/Assignment0/build/CMakeFiles/Transformation.dir/main.cpp.o"
-  )
-set(CMAKE_CXX_COMPILER_ID "GNU")
 
-# The include file search paths:
-set(CMAKE_CXX_TARGET_INCLUDE_PATH
-  "../EIGEN3_INCLUDE_DIR"
+# The set of dependency files which are needed:
+set(CMAKE_DEPENDS_DEPENDENCY_FILES
+  "/mnt/d/Project/Games101_Homeworks/Assignment0/main.cpp" "CMakeFiles/Transformation.dir/main.cpp.o" "gcc" "CMakeFiles/Transformation.dir/main.cpp.o.d"
   )
 
 # Targets to which this target links.
