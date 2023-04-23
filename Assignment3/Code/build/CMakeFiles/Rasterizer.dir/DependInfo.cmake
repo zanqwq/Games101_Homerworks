@@ -1,17 +1,20 @@
-
-# Consider dependencies only in project.
-set(CMAKE_DEPENDS_IN_PROJECT_ONLY OFF)
-
 # The set of languages for which implicit dependencies are needed:
 set(CMAKE_DEPENDS_LANGUAGES
+  "CXX"
   )
+# The set of files for implicit dependencies of each language:
+set(CMAKE_DEPENDS_CHECK_CXX
+  "/mnt/d/Project/Games101_Homeworks/Assignment3/Code/Texture.cpp" "/mnt/d/Project/Games101_Homeworks/Assignment3/Code/build/CMakeFiles/Rasterizer.dir/Texture.cpp.o"
+  "/mnt/d/Project/Games101_Homeworks/Assignment3/Code/Triangle.cpp" "/mnt/d/Project/Games101_Homeworks/Assignment3/Code/build/CMakeFiles/Rasterizer.dir/Triangle.cpp.o"
+  "/mnt/d/Project/Games101_Homeworks/Assignment3/Code/main.cpp" "/mnt/d/Project/Games101_Homeworks/Assignment3/Code/build/CMakeFiles/Rasterizer.dir/main.cpp.o"
+  "/mnt/d/Project/Games101_Homeworks/Assignment3/Code/rasterizer.cpp" "/mnt/d/Project/Games101_Homeworks/Assignment3/Code/build/CMakeFiles/Rasterizer.dir/rasterizer.cpp.o"
+  )
+set(CMAKE_CXX_COMPILER_ID "GNU")
 
-# The set of dependency files which are needed:
-set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/mnt/d/Project/Games101_Homeworks/Assignment3/Code/Texture.cpp" "CMakeFiles/Rasterizer.dir/Texture.cpp.o" "gcc" "CMakeFiles/Rasterizer.dir/Texture.cpp.o.d"
-  "/mnt/d/Project/Games101_Homeworks/Assignment3/Code/Triangle.cpp" "CMakeFiles/Rasterizer.dir/Triangle.cpp.o" "gcc" "CMakeFiles/Rasterizer.dir/Triangle.cpp.o.d"
-  "/mnt/d/Project/Games101_Homeworks/Assignment3/Code/main.cpp" "CMakeFiles/Rasterizer.dir/main.cpp.o" "gcc" "CMakeFiles/Rasterizer.dir/main.cpp.o.d"
-  "/mnt/d/Project/Games101_Homeworks/Assignment3/Code/rasterizer.cpp" "CMakeFiles/Rasterizer.dir/rasterizer.cpp.o" "gcc" "CMakeFiles/Rasterizer.dir/rasterizer.cpp.o.d"
+# The include file search paths:
+set(CMAKE_CXX_TARGET_INCLUDE_PATH
+  ".././include"
+  "/usr/local/include/opencv4"
   )
 
 # Targets to which this target links.
