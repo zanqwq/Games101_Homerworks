@@ -8,6 +8,19 @@
 #include "Texture.hpp"
 #include "OBJ_Loader.h"
 
+struct light
+{
+    Eigen::Vector3f position;
+    Eigen::Vector3f intensity;
+};
+
+static Eigen::Vector3f reflect(const Eigen::Vector3f& vec, const Eigen::Vector3f& axis)
+{
+    auto costheta = vec.dot(axis);
+    return (2 * costheta * axis - vec).normalized();
+}
+
+
 Eigen::Matrix4f get_model_matrix(float angle)
 {
     Eigen::Matrix4f rotation;
@@ -94,6 +107,7 @@ Eigen::Matrix4f get_projection_matrix(float eye_fovY, float aspect_ratio, float 
     return projection;
 }
 
+// in general, shader is a fucntion that take shading point as a payload param
 Eigen::Vector3f vertex_shader(const vertex_shader_payload& payload)
 {
     return payload.position;
@@ -106,18 +120,6 @@ Eigen::Vector3f normal_fragment_shader(const fragment_shader_payload& payload)
     result << return_color.x() * 255, return_color.y() * 255, return_color.z() * 255;
     return result;
 }
-
-static Eigen::Vector3f reflect(const Eigen::Vector3f& vec, const Eigen::Vector3f& axis)
-{
-    auto costheta = vec.dot(axis);
-    return (2 * costheta * axis - vec).normalized();
-}
-
-struct light
-{
-    Eigen::Vector3f position;
-    Eigen::Vector3f intensity;
-};
 
 Eigen::Vector3f phong_fragment_shader(const fragment_shader_payload& payload)
 {
@@ -164,7 +166,6 @@ Eigen::Vector3f phong_fragment_shader(const fragment_shader_payload& payload)
     }
     return result_color * 255.f;
 }
-
 
 Eigen::Vector3f texture_fragment_shader(const fragment_shader_payload& payload)
 {
@@ -265,7 +266,6 @@ Eigen::Vector3f bump_fragment_shader(const fragment_shader_payload& payload)
     return result_color * 255.f;
 }
 
-
 Eigen::Vector3f displacement_fragment_shader(const fragment_shader_payload& payload)
 {
     
@@ -315,17 +315,13 @@ Eigen::Vector3f displacement_fragment_shader(const fragment_shader_payload& payl
 
 int main(int argc, const char** argv)
 {
-    std::vector<Triangle*> TriangleList;
-
-    float angle = 140.0;
-    bool command_line = false;
-
     std::string filename = "output.png";
     objl::Loader Loader;
     std::string obj_path = "../models/spot/";
-
     // Load .obj File
     bool loadout = Loader.LoadFile("../models/spot/spot_triangulated_good.obj");
+
+    std::vector<Triangle*> TriangleList;
     for(auto mesh: Loader.LoadedMeshes)
     {
         for(int i=0;i<mesh.Vertices.size();i+=3)
@@ -341,14 +337,11 @@ int main(int argc, const char** argv)
         }
     }
 
-    rst::rasterizer r(700, 700);
-
+    bool command_line = false;
     auto texture_path = "hmap.jpg";
+    rst::rasterizer r(700, 700);
     r.set_texture(Texture(obj_path + texture_path));
-
-    // shader is a fucntion that take shading point as a payload param
-    std::function<Eigen::Vector3f(fragment_shader_payload)> active_shader = phong_fragment_shader;
-
+    std::function<Eigen::Vector3f(fragment_shader_payload)> fragment_shader = phong_fragment_shader;
     if (argc >= 2)
     {
         command_line = true;
@@ -357,39 +350,38 @@ int main(int argc, const char** argv)
         if (argc == 3 && std::string(argv[2]) == "texture")
         {
             std::cout << "Rasterizing using the texture shader\n";
-            active_shader = texture_fragment_shader;
+            fragment_shader = texture_fragment_shader;
             texture_path = "spot_texture.png";
             r.set_texture(Texture(obj_path + texture_path));
         }
         else if (argc == 3 && std::string(argv[2]) == "normal")
         {
             std::cout << "Rasterizing using the normal shader\n";
-            active_shader = normal_fragment_shader;
+            fragment_shader = normal_fragment_shader;
         }
         else if (argc == 3 && std::string(argv[2]) == "phong")
         {
             std::cout << "Rasterizing using the phong shader\n";
-            active_shader = phong_fragment_shader;
+            fragment_shader = phong_fragment_shader;
         }
         else if (argc == 3 && std::string(argv[2]) == "bump")
         {
             std::cout << "Rasterizing using the bump shader\n";
-            active_shader = bump_fragment_shader;
+            fragment_shader = bump_fragment_shader;
         }
         else if (argc == 3 && std::string(argv[2]) == "displacement")
         {
             std::cout << "Rasterizing using the bump shader\n";
-            active_shader = displacement_fragment_shader;
+            fragment_shader = displacement_fragment_shader;
         }
     }
-
-    Eigen::Vector3f eye_pos = {0,0,10};
-
     r.set_vertex_shader(vertex_shader);
-    r.set_fragment_shader(active_shader);
+    r.set_fragment_shader(fragment_shader);
 
     int key = 0;
     int frame_count = 0;
+    float angle = 140.0;
+    Eigen::Vector3f eye_pos = {0,0,10};
 
     if (command_line)
     {
