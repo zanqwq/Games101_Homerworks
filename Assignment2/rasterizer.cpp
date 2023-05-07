@@ -111,11 +111,13 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, ind_buf_id ind_buffer, col_buf
                 mvp * to_vec4(buf[i[1]], 1.0f),
                 mvp * to_vec4(buf[i[2]], 1.0f)
         };
-        //Homogeneous division
+
+        // Homogeneous division
         for (auto& vec : v) {
             vec /= vec.w();
         }
-        //Viewport transformation
+
+        // Viewport transformation
         for (auto & vert : v)
         {
             vert.x() = 0.5*width*(vert.x()+1.0);
@@ -142,7 +144,7 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, ind_buf_id ind_buffer, col_buf
     }
 }
 
-// Screen space rasterization
+// Screen space (after doing mvp + viewport) rasterization
 // Note: these triangles has performed model-view-projection transform
 // they are not equal to the original triangles we defined
 // TODO: MSAA + understanding barycentric z interpolation
@@ -164,15 +166,6 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
 
     // use msaa_num * msaa_num sample points inside one pixel to do sample
     float interval = 1.0f / msaa_num;
-
-    // auto rgba = [&](const Eigen::Vector3f rgb, float alpha) {
-    //     Eigen::Vector3f new_color = Eigen::Vector3f(rgb);
-    //     // do lerp(x, 255, 1 - alpha) on rgb
-    //     new_color[0] = new_color[0] + (255 - new_color[0]) * (1 - alpha);
-    //     new_color[1] = new_color[1] + (255 - new_color[1]) * (1 - alpha);
-    //     new_color[2] = new_color[2] + (255 - new_color[2]) * (1 - alpha);
-    //     return new_color;
-    // };
 
     auto get_percentage_color = [&](const Eigen::Vector3f color, float percentage) {
         std::vector<float> rgb{color[0], color[1], color[2]};
@@ -217,6 +210,8 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
                 // WTF? why should we interpolate this z value, rather than figure out the
                 // equation of the triangle pane and use it to compute an extract z value ?
                 auto [alpha, beta, gamma] = computeBarycentric2D(sample_x, sample_y, t.v);
+                // w_reciprocal 用来做透视矫正, 解决重心坐标在 screen space 和 view space 下不是 invariant 的问题
+                // 解释详见 cg 文档笔记
                 float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
                 float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
                 z_interpolated *= w_reciprocal;
