@@ -216,7 +216,13 @@ void Renderer::Render(const Scene& scene)
     float imageAspectRatio = scene.width / (float)scene.height;
 
     // Use this variable as the eye position to start your rays.
+    // for the sake of convenience
+    // the cam origin is set to (0, 0, 0)
+    // up dir (0, 1, 0)
+    // gaze at (0, 0, -1)
+    // we dont need to do model and view transform
     Vector3f eye_pos(0);
+    auto zNear = -1;
     int m = 0;
     for (int j = 0; j < scene.height; ++j)
     {
@@ -230,7 +236,16 @@ void Renderer::Render(const Scene& scene)
             // Also, don't forget to multiply both of them with the variable *scale*, and
             // x (horizontal) variable with the *imageAspectRatio*            
 
-            Vector3f dir = Vector3f(x, y, -1); // Don't forget to normalize this direction!
+            // screen space(0 ~ width) to clip-space(-1 ~ 1)
+            x = 2 * (i + 0.5f)/scene.width - 1;
+            y = 2 * (j + 0.5f)/scene.height - 1;
+
+            // clip-space to world space
+            x *= scale * imageAspectRatio;
+            y *= scale;
+
+            Vector3f dir = Vector3f(x, y, zNear); // Don't forget to normalize this direction!
+            dir = dir.normalized();
             framebuffer[m++] = castRay(eye_pos, dir, scene, 0);
         }
         UpdateProgress(j / (float)scene.height);

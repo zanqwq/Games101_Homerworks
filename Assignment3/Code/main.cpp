@@ -218,12 +218,32 @@ Eigen::Vector3f texture_fragment_shader(const fragment_shader_payload& payload)
     return result_color * 255.f;
 }
 
+// struct Coord {
+//     Eigen::Vector2f o;
+//     Eigen::Vector2f u;
+//     Eigen::Vector2f v;
+//     Eigen::Vector2f p;
+
+//     Eigen::Vector2f to_world_space() {
+//         Eigen::Vector3f _p(p.x(), p.y(), 1);
+//         Eigen::Matrix3f coor_trans;
+//         coor_trans <<
+//             u.x(), v.x(), o.x(),
+//             u.y(), v.y(), o.y(),
+//             0, 0, 1;
+
+//         auto pp = coor_trans * _p;
+
+//         return {pp.x(), pp.y()};
+//     }
+// };
+
 Eigen::Vector3f bump_fragment_shader(const fragment_shader_payload& payload)
 {
-    
     Eigen::Vector3f ka = Eigen::Vector3f(0.005, 0.005, 0.005);
     Eigen::Vector3f kd = payload.color;
     Eigen::Vector3f ks = Eigen::Vector3f(0.7937, 0.7937, 0.7937);
+    float p = 150;
 
     auto l1 = light{{20, 20, 20}, {500, 500, 500}};
     auto l2 = light{{-20, 20, 0}, {500, 500, 500}};
@@ -232,12 +252,9 @@ Eigen::Vector3f bump_fragment_shader(const fragment_shader_payload& payload)
     Eigen::Vector3f amb_light_intensity{10, 10, 10};
     Eigen::Vector3f eye_pos{0, 0, 10};
 
-    float p = 150;
-
     Eigen::Vector3f color = payload.color; 
     Eigen::Vector3f point = payload.view_pos;
     Eigen::Vector3f normal = payload.normal;
-
 
     float kh = 0.2, kn = 0.1;
 
@@ -251,18 +268,43 @@ Eigen::Vector3f bump_fragment_shader(const fragment_shader_payload& payload)
     // Vector ln = (-dU, -dV, 1)
     // Normal n = normalize(TBN * ln)
 
+    auto x = normal.x(), y = normal.y(), z = normal.z();
+
+    // 一般 tangent 会由 mesh 提供, 不用自己算
+    // 感觉这里的 tangent 算的也有问题, 假如法线是 (1, 1, 0)
+    // tan 算出来还是 (1, 1, 0)
+    Eigen::Vector3f tan((x*y) / std::sqrt(x*x + z*z), std::sqrt(x*x + z*z), y*z / std::sqrt(x*x + z*z));
+    Eigen::Vector3f bi_tan = normal.cross(tan);
+    Eigen::Matrix3f TNB;
+    TNB.col(0) = tan.normalized();
+    TNB.col(1) = bi_tan.normalized();
+    TNB.col(2) = normal.normalized();
+
+    // tex(u, v) 定义了 texel 与周围的相对高度
+    // 分别在 u 方向和 v 方向移动单位长度来计算梯度(即切线斜率), 再计算被扰动的法线方向
+    auto tex = payload.texture;
+    auto w = tex->width;
+    auto h = tex->height;
+    auto u = payload.tex_coords.x();
+    auto v = payload.tex_coords.y();
+
+    auto du = kh * kn * (tex->getColor(u + 1.0/w, v).norm() - tex->getColor(u, v).norm());
+    auto dv = kh * kn * (tex->getColor(u, v + 1.0/h).norm() - tex->getColor(u, v).norm());
+    Eigen::Vector3f ln(-du, -dv, 1);
 
     Eigen::Vector3f result_color = {0, 0, 0};
-    result_color = normal;
+    result_color = (TNB * ln).normalized();
 
     return result_color * 255.f;
 }
 
 Eigen::Vector3f displacement_fragment_shader(const fragment_shader_payload& payload)
 {
-    
+    payload.texture->getColor(payload.tex_coords.x(), payload.tex_coords.y());
     Eigen::Vector3f ka = Eigen::Vector3f(0.005, 0.005, 0.005);
-    Eigen::Vector3f kd = payload.color;
+    Eigen::Vector3f kd = payload.texture != nullptr ?
+        payload.texture->getColor(payload.tex_coords.x(), payload.tex_coords.y()) / 255.0f :
+        payload.color;
     Eigen::Vector3f ks = Eigen::Vector3f(0.7937, 0.7937, 0.7937);
 
     auto l1 = light{{20, 20, 20}, {500, 500, 500}};
@@ -290,7 +332,26 @@ Eigen::Vector3f displacement_fragment_shader(const fragment_shader_payload& payl
     // Vector ln = (-dU, -dV, 1)
     // Position p = p + kn * n * h(u,v)
     // Normal n = normalize(TBN * ln)
+    auto x = normal.x(), y = normal.y(), z = normal.z();
+    Eigen::Vector3f tan(x*y / std::sqrt(x*x + z*z), std::sqrt(x*x + z*z), y*z / std::sqrt(x*x + z*z));
+    Eigen::Vector3f bi_tan = normal.cross(tan);
+    Eigen::Matrix3f TBN;
+    TBN.col(0) = tan;
+    TBN.col(1) = bi_tan;
+    TBN.col(2) = normal;
 
+    auto tex = payload.texture;
+    auto w = tex->width;
+    auto h = tex->height;
+    auto u = payload.tex_coords.x();
+    auto v = payload.tex_coords.y();
+
+    auto du = kh * kn * (tex->getColor(u + 1.0/w, v).norm() - tex->getColor(u, v).norm());
+    auto dv = kh * kn * (tex->getColor(u, v + 1.0/h).norm() - tex->getColor(u, v).norm());
+    Eigen::Vector3f ln(-du, -dv, 1);
+    
+    auto new_normal = (TBN * ln).normalized();
+    auto vec_eye = (eye_pos - point).normalized();
 
     Eigen::Vector3f result_color = {0, 0, 0};
 
@@ -298,8 +359,24 @@ Eigen::Vector3f displacement_fragment_shader(const fragment_shader_payload& payl
     {
         // TODO: For each light source in the code, calculate what the *ambient*, *diffuse*, and *specular* 
         // components are. Then, accumulate that result on the *result_color* object.
+        auto r_sqrt = (light.position - point).squaredNorm();
+        auto I = light.intensity / r_sqrt;
+        auto vec_light = (light.position - point).normalized();
+        auto vec_half = (vec_light + vec_eye).normalized();
 
+        // TODO: For each light source in the code, calculate what the *ambient*, *diffuse*, and *specular* 
+        // components are. Then, accumulate that result on the *result_color* object.
 
+        // amibent: const
+        Eigen::Vector3f ambient = ka.cwiseProduct(amb_light_intensity);
+
+        // diffuse = kd * I/r^2 * max(0, vec_light * vec_normal)
+        Eigen::Vector3f diffuse = kd.cwiseProduct(I) * std::max(0.0f, vec_light.dot(new_normal));
+
+        // specular = ks * I/r^2 * max(0, vec_half * vec_normal)^p
+        Eigen::Vector3f specular = ks.cwiseProduct(I) * std::pow(std::max(0.0f, vec_half.dot(new_normal)), p);
+
+        result_color += ambient + diffuse + specular;
     }
 
     return result_color * 255.f;
@@ -364,8 +441,10 @@ int main(int argc, const char** argv)
         }
         else if (argc == 3 && std::string(argv[2]) == "displacement")
         {
-            std::cout << "Rasterizing using the bump shader\n";
+            std::cout << "Rasterizing using the displacement shader\n";
             fragment_shader = displacement_fragment_shader;
+            texture_path = "spot_texture.png";
+            r.set_texture(Texture(obj_path + texture_path));
         }
     }
     r.set_vertex_shader(vertex_shader);
