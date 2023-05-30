@@ -238,7 +238,8 @@ void Renderer::Render(const Scene& scene)
 
             // screen space(0 ~ width) to clip-space(-1 ~ 1)
             x = 2 * (i + 0.5f)/scene.width - 1;
-            y = 2 * (j + 0.5f)/scene.height - 1;
+            y = 2 * (1 - j + 0.5f)/scene.height - 1;
+            y = -y;
 
             // clip-space to world space
             x *= scale * imageAspectRatio;
