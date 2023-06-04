@@ -12,6 +12,7 @@
 class Bounds3
 {
   public:
+    // pMin store the min value of x, y, z, pMax store the max
     Vector3f pMin, pMax; // two points to specify the bounding box
     Bounds3()
     {
@@ -27,6 +28,7 @@ class Bounds3
         pMax = Vector3f(fmax(p1.x, p2.x), fmax(p1.y, p2.y), fmax(p1.z, p2.z));
     }
 
+    // 对角线
     Vector3f Diagonal() const { return pMax - pMin; }
     int maxExtent() const
     {
@@ -93,10 +95,24 @@ class Bounds3
 inline bool Bounds3::IntersectP(const Ray& ray, const Vector3f& invDir,
                                 const std::array<int, 3>& dirIsNeg) const
 {
-    // invDir: ray direction(x,y,z), invDir=(1.0/x,1.0/y,1.0/z), use this because Multiply is faster that Division
+    // invDir: ray direction(x,y,z), invDir=(1.0/x,1.0/y,1.0/z), use this because Multiply is faster than Division
     // dirIsNeg: ray direction(x,y,z), dirIsNeg=[int(x>0),int(y>0),int(z>0)], use this to simplify your logic
     // TODO test if ray bound intersects
+    float tEnter, tExit;
+
+    // e.g: how to calc intersection with pane xMin = pMin.x ?
+    // xOri + xDir * t = xMin
+    // tXMin = (xMin - xOri) / xDir
+    auto tEnterVec = (pMin - ray.origin) * invDir;
+    auto tExitVec = (pMax - ray.origin) * invDir;
+
+    auto tEnter = std::max(tEnterVec.x, std::max(tEnterVec.y, tEnterVec.z));
+    auto tExit = std::min(tExitVec.x, std::min(tExitVec.y, tExitVec.z));
     
+    if (tEnter < tExit && tExit > 0) {
+        return true;
+    }
+    return false;
 }
 
 inline Bounds3 Union(const Bounds3& b1, const Bounds3& b2)
