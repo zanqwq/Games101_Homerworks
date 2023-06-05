@@ -86,7 +86,7 @@ class Bounds3
         return (i == 0) ? pMin : pMax;
     }
 
-    inline bool IntersectP(const Ray& ray, const Vector3f& invDir) const;
+    inline bool IntersectP(const Ray& ray) const;
 };
 
 
