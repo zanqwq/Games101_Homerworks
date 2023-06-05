@@ -219,10 +219,10 @@ inline Intersection Triangle::getIntersection(Ray ray)
 	Vector3f s1 = crossProduct(ray.direction, e2);
 	Vector3f s2 = crossProduct(s, e1);
 
-	Vector3f s = Vector3f(dotProduct(s2, e2), dotProduct(s1, s), dotProduct(s2, ray.direction)) / dotProduct(s1, e1);
-	float tnear = s.x;
- 	float u = s.y;
-	float v = s.z;
+	Vector3f tuv = Vector3f(dotProduct(s2, e2), dotProduct(s1, s), dotProduct(s2, ray.direction)) / dotProduct(s1, e1);
+	float tnear = tuv.x;
+ 	float u = tuv.y;
+	float v = tuv.z;
 
 	if (tnear >= 0 && u >= 0 && v >= 0 && (u + v) <= 1)
 	{

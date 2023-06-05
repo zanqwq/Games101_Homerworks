@@ -86,33 +86,40 @@ class Bounds3
         return (i == 0) ? pMin : pMax;
     }
 
-    inline bool IntersectP(const Ray& ray, const Vector3f& invDir,
-                           const std::array<int, 3>& dirisNeg) const;
+    inline bool IntersectP(const Ray& ray, const Vector3f& invDir) const;
 };
 
 
 
-inline bool Bounds3::IntersectP(const Ray& ray, const Vector3f& invDir,
-                                const std::array<int, 3>& dirIsNeg) const
+inline bool Bounds3::IntersectP(const Ray& ray) const
 {
     // invDir: ray direction(x,y,z), invDir=(1.0/x,1.0/y,1.0/z), use this because Multiply is faster than Division
-    // dirIsNeg: ray direction(x,y,z), dirIsNeg=[int(x>0),int(y>0),int(z>0)], use this to simplify your logic
+    // dirIsNeg: ray direction(x,y,z), dirIsNeg=[int(x<0),int(y<0),int(z<0)], use this to simplify your logic
     // TODO test if ray bound intersects
-    float tEnter, tExit;
 
     // e.g: how to calc intersection with pane xMin = pMin.x ?
     // xOri + xDir * t = xMin
     // tXMin = (xMin - xOri) / xDir
-    auto tEnterVec = (pMin - ray.origin) * invDir;
-    auto tExitVec = (pMax - ray.origin) * invDir;
 
-    auto tEnter = std::max(tEnterVec.x, std::max(tEnterVec.y, tEnterVec.z));
-    auto tExit = std::min(tExitVec.x, std::min(tExitVec.y, tExitVec.z));
-    
-    if (tEnter < tExit && tExit > 0) {
-        return true;
-    }
-    return false;
+    // NOTE: 注意, 负方向计算出来的是从 max enter, min exit, 需要 swap 一下
+
+    const auto& origin = ray.origin;
+    const auto& invDir = ray.direction_inv;
+    std::array<int, 3> dirIsNeg = {int(ray.direction.x < 0), int(ray.direction.y < 0), int(ray.direction.z < 0)};
+
+	float tEnter = -std::numeric_limits<float>::infinity();
+	float tExit = std::numeric_limits<float>::infinity();
+	for (int i = 0; i < 3; i++)
+	{
+		float min = (pMin[i] - origin[i]) * invDir[i];
+		float max = (pMax[i] - origin[i]) * invDir[i];
+		if (dirIsNeg[i]) {
+			std::swap(min, max);
+		}
+		tEnter = std::max(min, tEnter);
+		tExit = std::min(max, tExit);
+	}
+	return tEnter < tExit && tExit >= 0;
 }
 
 inline Bounds3 Union(const Bounds3& b1, const Bounds3& b2)
