@@ -127,19 +127,6 @@ BVHBuildNode* BVHAccel::recursiveBuildWithSAH(std::vector<Object*> objects)
             centroidBounds = Union(centroidBounds, objects[i]->getBounds().Centroid());
 
         int dim = centroidBounds.maxExtent();
-        float maxExtentLength = 0;
-
-        switch (dim) {
-        case 0:
-            maxExtentLength = bounds.pMax.x - bounds.pMin.x;
-            break;
-        case 1:
-            maxExtentLength = bounds.pMax.y - bounds.pMin.y;
-            break;
-        case 2:
-            maxExtentLength = bounds.pMax.z - bounds.pMin.z;
-            break;
-        }
 
         // 1. init bucket info for sah partition buckets
         const int N_BUCKET = 12;
