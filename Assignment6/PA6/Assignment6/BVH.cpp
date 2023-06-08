@@ -148,7 +148,8 @@ BVHBuildNode* BVHAccel::recursiveBuildWithSAH(std::vector<Object*> objects)
             Bounds3 bounds;
         } buckets[N_BUCKET];
         for (int i = 0; i < objects.size(); i++) {
-            int j = N_BUCKET * centroidBounds.Offset(objects[i]->getBounds().Centroid())[dim];
+            auto t = N_BUCKET * centroidBounds.Offset(objects[i]->getBounds().Centroid());
+            int j = dim == 0 ? t.x : dim == 1 ? t.y : t.z;
             if (j == N_BUCKET) j--;
             buckets[j].bounds = Union(buckets[j].bounds, objects[i]->getBounds());
         }
@@ -187,8 +188,9 @@ BVHBuildNode* BVHAccel::recursiveBuildWithSAH(std::vector<Object*> objects)
 
         auto beginning = objects.begin();
         auto ending = objects.end();
-        auto middling = std::partition(objects.begin(), objects.end(), [*](const Object* obj) {
-            int bucket_idx = N_BUCKET * centroidBounds.Offset(obj->getBounds().Centroid())[dim];
+        auto middling = std::partition(objects.begin(), objects.end(), [=](Object* obj) {
+            auto t = N_BUCKET * centroidBounds.Offset(obj->getBounds().Centroid());
+            int bucket_idx = dim == 0 ? t.x : dim == 1 ? t.y : t.z;
             if (bucket_idx == N_BUCKET) bucket_idx--;
             return bucket_idx <= minCostSplitBucketIdx;
         });
@@ -196,10 +198,10 @@ BVHBuildNode* BVHAccel::recursiveBuildWithSAH(std::vector<Object*> objects)
         auto leftshapes = std::vector<Object*>(beginning, middling);
         auto rightshapes = std::vector<Object*>(middling, ending);
 
-        assert(objects.size() == (leftshapes.size() + rightshapes.size()));
+        // assert(objects.size() == (leftshapes.size() + rightshapes.size()));
 
-        node->left = recursiveBuild(leftshapes);
-        node->right = recursiveBuild(rightshapes);
+        node->left = recursiveBuildWithSAH(leftshapes);
+        node->right = recursiveBuildWithSAH(rightshapes);
 
         node->bounds = Union(node->left->bounds, node->right->bounds);
     }
