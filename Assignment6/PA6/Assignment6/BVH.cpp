@@ -114,8 +114,8 @@ BVHBuildNode* BVHAccel::recursiveBuildWithSAH(std::vector<Object*> objects)
         return node;
     }
     else if (objects.size() == 2) {
-        node->left = recursiveBuild(std::vector{objects[0]});
-        node->right = recursiveBuild(std::vector{objects[1]});
+        node->left = recursiveBuildWithSAH(std::vector{objects[0]});
+        node->right = recursiveBuildWithSAH(std::vector{objects[1]});
 
         node->bounds = Union(node->left->bounds, node->right->bounds);
         return node;
@@ -171,8 +171,8 @@ BVHBuildNode* BVHAccel::recursiveBuildWithSAH(std::vector<Object*> objects)
             }
             cost[i] =
                 costRayBoxIntersection
-                + (cnt0 * costRayPrimitiveIntersection * b0.SurfaceArea())
-                + (cnt1 * costRayPrimitiveIntersection * b1.SurfaceArea());
+                + (cnt0 * costRayPrimitiveIntersection * b0.SurfaceArea() / bounds.SurfaceArea())
+                + (cnt1 * costRayPrimitiveIntersection * b1.SurfaceArea() / bounds.SurfaceArea());
             if (cost[i] < minCost) {
                 minCost = cost[i];
                 minCostSplitBucketIdx = i;
