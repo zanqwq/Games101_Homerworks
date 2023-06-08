@@ -12,7 +12,7 @@ BVHAccel::BVHAccel(std::vector<Object*> p, int maxPrimsInNode,
     if (primitives.empty())
         return;
 
-    root = SplitMethod::NAIVE ?  recursiveBuild(primitives) : recursiveBuildWithSAH(primitives);
+    root = splitMethod == SplitMethod::NAIVE ? recursiveBuild(primitives) : recursiveBuildWithSAH(primitives);
 
     time(&stop);
     double diff = difftime(stop, start);
@@ -148,7 +148,7 @@ BVHBuildNode* BVHAccel::recursiveBuildWithSAH(std::vector<Object*> objects)
             Bounds3 bounds;
         } buckets[N_BUCKET];
         for (int i = 0; i < objects.size(); i++) {
-            int j = N_BUCKET * centroidBounds.Offset(objects[i]->getBounds().Centroid)[dim];
+            int j = N_BUCKET * centroidBounds.Offset(objects[i]->getBounds().Centroid())[dim];
             if (j == N_BUCKET) j--;
             buckets[j].bounds = Union(buckets[j].bounds, objects[i]->getBounds());
         }
@@ -187,10 +187,10 @@ BVHBuildNode* BVHAccel::recursiveBuildWithSAH(std::vector<Object*> objects)
 
         auto beginning = objects.begin();
         auto ending = objects.end();
-        auto middling = std::partition(objects.begin(), objects.end(), [=](const Object* obj) {
-            int bucket_idx = N_BUCKET * centroidBounds.Offset(obj->getBounds().Centroid)[dim];
+        auto middling = std::partition(objects.begin(), objects.end(), [*](const Object* obj) {
+            int bucket_idx = N_BUCKET * centroidBounds.Offset(obj->getBounds().Centroid())[dim];
             if (bucket_idx == N_BUCKET) bucket_idx--;
-            return b <= minCostSplitBucketIdx;
+            return bucket_idx <= minCostSplitBucketIdx;
         });
 
         auto leftshapes = std::vector<Object*>(beginning, middling);
