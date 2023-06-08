@@ -143,7 +143,7 @@ BVHBuildNode* BVHAccel::recursiveBuildWithSAH(std::vector<Object*> objects)
 
         // 2. calc cost for splitting after each bucket and find minimal
         float cost[N_BUCKET - 1];
-        float minCost = std::numeric_limits<float>().max();
+        float minCost = std::numeric_limits<float>::max();
         int minCostSplitBucketIdx = 0;
         for (int i = 0; i < N_BUCKET - 1; i++) {
             Bounds3 b0, b1;
