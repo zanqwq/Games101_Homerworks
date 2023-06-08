@@ -93,6 +93,121 @@ BVHBuildNode* BVHAccel::recursiveBuild(std::vector<Object*> objects)
     return node;
 }
 
+BVHBuildNode* BVHAccel::recursiveBuildWithSAH(std::vector<Object*> objects)
+{
+    BVHBuildNode* node = new BVHBuildNode();
+
+    // Compute bounds of all primitives in BVH node
+    Bounds3 bounds;
+    const auto costRayBoxIntersection = 0.125f;
+    const auto costRayPrimitiveIntersection = 1.0f;
+
+    for (int i = 0; i < objects.size(); ++i)
+        bounds = Union(bounds, objects[i]->getBounds());
+
+    if (objects.size() == 1) {
+        // Create leaf _BVHBuildNode_
+        node->bounds = objects[0]->getBounds();
+        node->object = objects[0];
+        node->left = nullptr;
+        node->right = nullptr;
+        return node;
+    }
+    else if (objects.size() == 2) {
+        node->left = recursiveBuild(std::vector{objects[0]});
+        node->right = recursiveBuild(std::vector{objects[1]});
+
+        node->bounds = Union(node->left->bounds, node->right->bounds);
+        return node;
+    }
+    else {
+        // 包围所有 primitive 中心点的 bounding box
+        Bounds3 centroidBounds;
+        for (int i = 0; i < objects.size(); ++i)
+            centroidBounds = Union(centroidBounds, objects[i]->getBounds().Centroid());
+
+        int dim = centroidBounds.maxExtent();
+        float maxExtentLength = 0;
+
+        switch (dim) {
+        case 0:
+            maxExtentLength = bounds.pMax.x - bounds.pMin.x;
+            break;
+        case 1:
+            maxExtentLength = bounds.pMax.y - bounds.pMin.y;
+            break;
+        case 2:
+            maxExtentLength = bounds.pMax.z - bounds.pMin.z;
+            break;
+        }
+
+        // 1. init bucket info for sah partition buckets
+        const int N_BUCKET = 12;
+        struct SAHBucket {
+            int cnt;
+            Bounds3 bounds;
+        } buckets[N_BUCKET];
+        for (int i = 0; i < objects.size(); i++) {
+            int j = N_BUCKET * centroidBounds.Offset(objects[i]->getBounds().Centroid)[dim];
+            if (j == N_BUCKET) j--;
+            buckets[j].bounds = Union(buckets[j].bounds, objects[i]->getBounds());
+        }
+
+        // 2. calc cost for splitting after each bucket and find minimal
+        float cost[N_BUCKET - 1];
+        float minCost = std::numeric_limits<float>().max();
+        int minCostSplitBucketIdx = 0;
+        for (int i = 0; i < N_BUCKET - 1; i++) {
+            Bounds3 b0, b1;
+            int cnt0 = 0, cnt1 = 0;
+            for (int j = 0; j <= i; j++) {
+                b0 = Union(b0, buckets[j].bounds);
+                cnt0 += buckets[j].cnt;
+            }
+            for (int j = i + 1; j < N_BUCKET; j++) {
+                b1 = Union(b1, buckets[j].bounds);
+                cnt1 += buckets[j].cnt;
+            }
+            cost[i] =
+                costRayBoxIntersection
+                + (cnt0 * costRayPrimitiveIntersection * b0.SurfaceArea())
+                + (cnt1 * costRayPrimitiveIntersection * b1.SurfaceArea());
+            if (cost[i] < minCost) {
+                minCost = cost[i];
+                minCostSplitBucketIdx = i;
+            }
+        }
+
+        // 3. either create leaf or split primitives at selected sah bucket
+        // 在作业框架里, node 只能存一个 primitive, 所以只要 n > 2 就 split
+        // float leafCost = objects.size();
+        // if (objects.size() > maxPrimsInNode || minCost < leafCost) {
+            // split
+        // }
+
+        auto beginning = objects.begin();
+        auto ending = objects.end();
+        auto middling = std::partition(objects.begin(), objects.end(), [=](const Object* obj) {
+            int bucket_idx = N_BUCKET * centroidBounds.Offset(obj->getBounds().Centroid)[dim];
+            if (bucket_idx == N_BUCKET) bucket_idx--;
+            return b <= minCostSplitBucketIdx;
+        });
+
+        auto leftshapes = std::vector<Object*>(beginning, middling);
+        auto rightshapes = std::vector<Object*>(middling, ending);
+
+        assert(objects.size() == (leftshapes.size() + rightshapes.size()));
+
+        node->left = recursiveBuild(leftshapes);
+        node->right = recursiveBuild(rightshapes);
+
+        node->bounds = Union(node->left->bounds, node->right->bounds);
+    }
+
+    return node;
+}
+
+
 Intersection BVHAccel::Intersect(const Ray& ray) const
 {
     Intersection isect;

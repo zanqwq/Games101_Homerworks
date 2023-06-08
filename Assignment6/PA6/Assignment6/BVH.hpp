@@ -39,6 +39,7 @@ public:
 
     // BVHAccel Private Methods
     BVHBuildNode* recursiveBuild(std::vector<Object*>objects);
+    BVHBuildNode* recursiveBuildWithSAH(std::vector<Object*>objects);
 
     // BVHAccel Private Data
     const int maxPrimsInNode;
@@ -53,6 +54,7 @@ struct BVHBuildNode {
     Object* object;
 
 public:
+    // [offset, offset + nPrimitive) store the leaf nodes
     int splitAxis=0, firstPrimOffset=0, nPrimitives=0;
     // BVHBuildNode Public Methods
     BVHBuildNode(){
