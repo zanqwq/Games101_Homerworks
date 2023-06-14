@@ -233,26 +233,27 @@ inline Intersection Triangle::getIntersection(Ray ray)
 {
     Intersection inter;
 
-    if (dotProduct(ray.direction, normal) > 0)
-        return inter;
-    double u, v, t_tmp = 0;
-    Vector3f pvec = crossProduct(ray.direction, e2);
-    double det = dotProduct(e1, pvec);
-    if (fabs(det) < EPSILON)
-        return inter;
+	Vector3f e1 = v1 - v0;
+	Vector3f e2 = v2 - v0;
+	Vector3f s = ray.origin - v0;
+	Vector3f s1 = crossProduct(ray.direction, e2);
+	Vector3f s2 = crossProduct(s, e1);
 
-    double det_inv = 1. / det;
-    Vector3f tvec = ray.origin - v0;
-    u = dotProduct(tvec, pvec) * det_inv;
-    if (u < 0 || u > 1)
-        return inter;
-    Vector3f qvec = crossProduct(tvec, e1);
-    v = dotProduct(ray.direction, qvec) * det_inv;
-    if (v < 0 || u + v > 1)
-        return inter;
-    t_tmp = dotProduct(e2, qvec) * det_inv;
+	Vector3f tuv = Vector3f(dotProduct(s2, e2), dotProduct(s1, s), dotProduct(s2, ray.direction)) / dotProduct(s1, e1);
+	float tnear = tuv.x;
+ 	float u = tuv.y;
+	float v = tuv.z;
 
-    // TODO find ray triangle intersection
+	if (tnear >= 0 && u >= 0 && v >= 0 && (u + v) <= 1)
+	{
+
+        inter.happened = true;
+        inter.coords = Vector3f(tnear, u, v);
+        inter.normal = normal;
+        inter.m = m;
+        inter.obj = this;
+        inter.distance = tnear;
+	}
 
     return inter;
 }
