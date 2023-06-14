@@ -64,7 +64,7 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const
     // TO DO Implement Path Tracing Algorithm here
     auto inter = Scene::intersect(ray);
     if (!inter.happened) {
-        return {};
+        return Scene::backgroundColor;
     }
 
     // indir light
@@ -72,24 +72,24 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const
     
     auto p = inter.coords;
     auto n = inter.normal;
-    auto wo = -ray.direction;
     auto m = inter.m;
+    auto wo = -ray.direction;
  
     // pdf light = 1 / sum of emit object surface area
+    Intersection sample_light_inter;
     float pdf_light;
-    sampleLight(&inter, &pdf_light);
+    sampleLight(&sample_light_inter, &pdf_light);
 
-    auto x = inter.coords;
-    auto nn = inter.normal;
+    auto x = sample_light_inter.coords;
+    auto nn = sample_light_inter.normal;
+    auto emit = sample_light_inter.emit;
     auto ws = x - p;
-    auto emit = inter.emit;
 
-    auto eps = 0.00000001;
     auto r = Ray(p, ws);
     auto light_inter = Scene::intersect(r);
 
     // sample light not block in middle
-    if (light_inter.happened && fabs(inter.distance - light_inter.distance) < eps) {
+    if (light_inter.happened && fabs(sample_light_inter.distance - light_inter.distance) < 0.00000001) {
         dir_light =
             emit
             * m->eval(wo, ws, n)
@@ -100,9 +100,9 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const
     }
 
 
-    if (get_random_float() < P_RR) {
+    if (get_random_float() < RussianRoulette) {
         auto wi = m->sample(wo, n);
-        auto pdf = m->pdf(wo, wi, n);
+        auto pdf_obj = m->pdf(wo, wi, n);
 
         auto r = Ray(p, wi);
         auto obj_inter = Scene::intersect(r);
@@ -113,7 +113,7 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const
                 castRay(r, depth + 1)
                 * m->eval(wo, wi, n)
                 * dotProduct(wi, n)
-                / pdf
+                / pdf_obj
                 / RussianRoulette;
                 
         }
