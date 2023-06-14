@@ -78,7 +78,7 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const
     // pdf light = 1 / sum of emit object surface area
     Intersection sample_light_inter;
     float pdf_light;
-    sampleLight(&sample_light_inter, &pdf_light);
+    sampleLight(sample_light_inter, pdf_light);
 
     auto x = sample_light_inter.coords;
     auto nn = sample_light_inter.normal;
@@ -108,7 +108,7 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const
         auto obj_inter = Scene::intersect(r);
 
         // if ray hit a non-emitting object
-        if (obj_inter.happened && !obj_inter.obj->hasEmit) {
+        if (obj_inter.happened && !obj_inter.obj->hasEmit()) {
             indir_light =
                 castRay(r, depth + 1)
                 * m->eval(wo, wi, n)
