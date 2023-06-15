@@ -58,7 +58,7 @@ bool Scene::trace(
     return (*hitObject != nullptr);
 }
 
-Vector3f shade(Intersection inter, Vector3f wo) {
+Vector3f Scene::shade(Intersection inter, Vector3f wo) {
     if (!inter.happened) {
         return Scene::backgroundColor;
     }
@@ -127,7 +127,7 @@ Vector3f shade(Intersection inter, Vector3f wo) {
 }
 
 // Implementation of Path Tracing
-Vector3f Scene::castRay(const Ray &ray, int depth) const
+Vector3f Scene::castRay(const Ray &ray) const
 {
     // TO DO Implement Path Tracing Algorithm here
     return shade(Scene::intersect(ray), -ray.direction);
