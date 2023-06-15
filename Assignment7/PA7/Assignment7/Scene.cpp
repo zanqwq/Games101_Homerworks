@@ -67,6 +67,10 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const
         return Scene::backgroundColor;
     }
 
+    if (inter.m->hasEmission()) {
+        return inter.m->getEmission();
+    }
+
     // indir light
     Vector3f dir_light, indir_light;
     
@@ -83,7 +87,7 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const
     auto x = sample_light_inter.coords;
     auto nn = sample_light_inter.normal;
     auto emit = sample_light_inter.emit;
-    auto ws = x - p;
+    auto ws = (x - p).normalized();
 
     auto r = Ray(p, ws);
     auto light_inter = Scene::intersect(r);
@@ -92,9 +96,9 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const
     if (light_inter.happened && fabs(sample_light_inter.distance - light_inter.distance) < 0.00000001) {
         dir_light =
             emit
-            * m->eval(wo, ws, n)
+            * m->eval(ws, wo, n)
             * dotProduct(ws, n) // ws 和交点法线夹角
-            * dotProduct(ws, nn) // ws 和光源法线夹角
+            * dotProduct(-ws, nn) // ws 和光源法线夹角
             / std::pow(((x - p).norm()), 2)
             / pdf_light;
     }
@@ -102,7 +106,7 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const
 
     if (get_random_float() < RussianRoulette) {
         auto wi = m->sample(wo, n);
-        auto pdf_obj = m->pdf(wo, wi, n);
+        auto pdf_obj = m->pdf(wi, wo, n);
 
         auto r = Ray(p, wi);
         auto obj_inter = Scene::intersect(r);
@@ -111,7 +115,7 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const
         if (obj_inter.happened && !obj_inter.obj->hasEmit()) {
             indir_light =
                 castRay(r, depth + 1)
-                * m->eval(wo, wi, n)
+                * m->eval(wi, wo, n)
                 * dotProduct(wi, n)
                 / pdf_obj
                 / RussianRoulette;
