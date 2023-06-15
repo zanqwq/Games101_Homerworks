@@ -89,22 +89,20 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const
     auto emit = sample_light_inter.emit;
     auto ws = (x - p).normalized();
 
-    auto r = Ray(p, ws);
-    auto light_inter = Scene::intersect(r);
-
+    auto light_inter = Scene::intersect(Ray(p, ws));
     // sample light not block in middle
-    if (light_inter.happened && fabs(sample_light_inter.distance - light_inter.distance) < 0.00000001) {
+    if (light_inter.happened && (light_inter.coords - x).norm() < 0.01) {
         dir_light =
             emit
             * m->eval(ws, wo, n)
             * dotProduct(ws, n) // ws 和交点法线夹角
             * dotProduct(-ws, nn) // ws 和光源法线夹角
-            / std::pow(((x - p).norm()), 2)
+            / std::pow((x - p).norm(), 2)
             / pdf_light;
     }
 
 
-    if (get_random_float() < RussianRoulette) {
+    if (get_random_float() < Scene::RussianRoulette) {
         auto wi = m->sample(wo, n);
         auto pdf_obj = m->pdf(wi, wo, n);
 
@@ -118,7 +116,7 @@ Vector3f Scene::castRay(const Ray &ray, int depth) const
                 * m->eval(wi, wo, n)
                 * dotProduct(wi, n)
                 / pdf_obj
-                / RussianRoulette;
+                / Scene::RussianRoulette;
                 
         }
     }

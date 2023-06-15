@@ -229,33 +229,43 @@ inline bool Triangle::intersect(const Ray& ray, float& tnear,
 
 inline Bounds3 Triangle::getBounds() { return Union(Bounds3(v0, v1), v2); }
 
+// FIX: getIntersection 之前的计算不知道为啥不行
 inline Intersection Triangle::getIntersection(Ray ray)
 {
     Intersection inter;
 
-	Vector3f e1 = v1 - v0;
-	Vector3f e2 = v2 - v0;
-	Vector3f s = ray.origin - v0;
-	Vector3f s1 = crossProduct(ray.direction, e2);
-	Vector3f s2 = crossProduct(s, e1);
+	if (dotProduct(ray.direction, normal) > 0)
+		return inter;
+	double u, v, t_tmp = 0;
+	Vector3f pvec = crossProduct(ray.direction, e2);
+	double det = dotProduct(e1, pvec);
+	if (fabs(det) < EPSILON)
+		return inter;
 
-	Vector3f tuv = Vector3f(dotProduct(s2, e2), dotProduct(s1, s), dotProduct(s2, ray.direction)) / dotProduct(s1, e1);
-	float tnear = tuv.x;
- 	float u = tuv.y;
-	float v = tuv.z;
+	double det_inv = 1. / det;
+	Vector3f tvec = ray.origin - v0;
+	u = dotProduct(tvec, pvec) * det_inv;
+	if (u < 0 || u > 1)
+		return inter;
+	Vector3f qvec = crossProduct(tvec, e1);
+	v = dotProduct(ray.direction, qvec) * det_inv;
+	if (v < 0 || u + v > 1)
+		return inter;
+	t_tmp = dotProduct(e2, qvec) * det_inv;
 
-	if (tnear >= 0 && u >= 0 && v >= 0 && (u + v) <= 1)
-	{
+	// TODO find ray triangle intersection
 
-        inter.happened = true;
-        inter.coords = Vector3f(tnear, u, v);
-        inter.normal = normal;
-        inter.m = m;
-        inter.obj = this;
-        inter.distance = tnear;
-	}
+	if (t_tmp <= 0)
+		return inter;
 
-    return inter;
+	inter.happened = true;
+	inter.coords = ray(t_tmp);
+	inter.m = this->m;
+	inter.normal = normal;
+	inter.distance = t_tmp;
+	inter.obj = this;
+
+	return inter;
 }
 
 inline Vector3f Triangle::evalDiffuseColor(const Vector2f&) const
