@@ -63,16 +63,14 @@ Vector3f Scene::shade(Intersection inter, Vector3f wo) const {
         return Scene::backgroundColor;
     }
 
-    if (inter.m->hasEmission()) {
-        return inter.m->getEmission();
-    }
-
     // indir light
     Vector3f dir_light, indir_light;
+
+    auto m = inter.m;
     
     auto p = inter.coords;
     auto n = inter.normal;
-    auto m = inter.m;
+    auto selfEmit = m->getEmission();
  
     // pdf light = 1 / sum of emit object surface area
     Intersection sample_light_inter;
@@ -82,8 +80,8 @@ Vector3f Scene::shade(Intersection inter, Vector3f wo) const {
     auto x = sample_light_inter.coords;
     auto nn = sample_light_inter.normal;
     auto emit = sample_light_inter.emit;
-    auto ws = (x - p).normalized();
 
+    auto ws = (x - p).normalized();
     auto light_inter = Scene::intersect(Ray(p, ws));
     // sample light not block in middle
     if (light_inter.happened && (light_inter.coords - x).norm() < 0.0001) {
@@ -105,25 +103,26 @@ Vector3f Scene::shade(Intersection inter, Vector3f wo) const {
     if (get_random_float() < RussianRoulette) {
         auto wi = m->sample(wo, n).normalized();
         auto pdf_obj = m->pdf(wi, wo, n);
- 
+
         auto obj_inter = Scene::intersect(Ray(p, wi));
         // if ray hit a non-emitting object
         if (obj_inter.happened && !obj_inter.obj->hasEmit()) {
-            // TODO:
-            auto f_r = m->eval(wi, wo, n);
-            auto cosA = std::max(.0f, dotProduct(wi, n));
-            indir_light =
-                // TODO
-                shade(obj_inter, -wi)
-                * f_r
-                * cosA
-                / pdf_obj
-                / Scene::RussianRoulette;
-                
+            // 防止 pdf_obj -> 0, 导致白噪点
+            if (pdf_obj > EPSILON) {
+                auto f_r = m->eval(wi, wo, n);
+                auto cosA = std::max(.0f, dotProduct(wi, n));
+                indir_light =
+                    // TODO
+                    shade(obj_inter, -wi)
+                    * f_r
+                    * cosA
+                    / pdf_obj
+                    / Scene::RussianRoulette;
+            }    
         }
     }
 
-    return dir_light + indir_light;
+    return selfEmit + dir_light + indir_light;
 }
 
 // Implementation of Path Tracing
