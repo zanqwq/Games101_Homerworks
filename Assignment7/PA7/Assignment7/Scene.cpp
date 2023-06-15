@@ -86,7 +86,7 @@ Vector3f shade(Intersection inter, Vector3f wo) {
 
     auto light_inter = Scene::intersect(Ray(p, ws));
     // sample light not block in middle
-    if (light_inter.happened && fabs(sample_light_inter.distance - light_inter.distance) < 0.00000001) {
+    if (light_inter.happened && (light_inter.distance - x).norm() < 0.0001) {
         auto f_r = m->eval(ws, wo, n);
         auto cosA = std::max(.0f, dotProduct(ws, n));
         auto cosB = std::max(.0f, dotProduct(-ws, nn));
