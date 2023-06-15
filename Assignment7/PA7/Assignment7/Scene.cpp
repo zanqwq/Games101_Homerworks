@@ -58,7 +58,7 @@ bool Scene::trace(
     return (*hitObject != nullptr);
 }
 
-Vector3f Scene::shade(Intersection inter, Vector3f wo) {
+Vector3f Scene::shade(Intersection inter, Vector3f wo) const {
     if (!inter.happened) {
         return Scene::backgroundColor;
     }
@@ -86,7 +86,7 @@ Vector3f Scene::shade(Intersection inter, Vector3f wo) {
 
     auto light_inter = Scene::intersect(Ray(p, ws));
     // sample light not block in middle
-    if (light_inter.happened && (light_inter.distance - x).norm() < 0.0001) {
+    if (light_inter.happened && (light_inter.coords - x).norm() < 0.0001) {
         auto f_r = m->eval(ws, wo, n);
         auto cosA = std::max(.0f, dotProduct(ws, n));
         auto cosB = std::max(.0f, dotProduct(-ws, nn));
@@ -114,7 +114,7 @@ Vector3f Scene::shade(Intersection inter, Vector3f wo) {
             auto cosA = std::max(.0f, dotProduct(wi, n));
             indir_light =
                 // TODO
-                shade(obj_inter, wi)
+                shade(obj_inter, -wi)
                 * f_r
                 * cosA
                 / pdf_obj
