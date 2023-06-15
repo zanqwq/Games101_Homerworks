@@ -59,6 +59,10 @@ bool Scene::trace(
 }
 
 Vector3f shade(Intersection inter, Vector3f wo) {
+    if (!inter.happened) {
+        return Scene::backgroundColor;
+    }
+
     if (inter.m->hasEmission()) {
         return inter.m->getEmission();
     }
@@ -83,11 +87,9 @@ Vector3f shade(Intersection inter, Vector3f wo) {
     auto light_inter = Scene::intersect(Ray(p, ws));
     // sample light not block in middle
     if (light_inter.happened && fabs(sample_light_inter.distance - light_inter.distance) < 0.00000001) {
-        // TODO:
-        auto f_r = m->eval(wo, ws, n);
+        auto f_r = m->eval(ws, wo, n);
         auto cosA = std::max(.0f, dotProduct(ws, n));
-        // TODO:
-        auto cosB = std::max(.0f, dotProduct(ws, nn));
+        auto cosB = std::max(.0f, dotProduct(-ws, nn));
         auto r2 = std::pow(((x - p).norm()), 2);
 
         dir_light =
@@ -102,13 +104,13 @@ Vector3f shade(Intersection inter, Vector3f wo) {
 
     if (get_random_float() < RussianRoulette) {
         auto wi = m->sample(wo, n).normalized();
-        auto pdf_obj = m->pdf(wo, wi, n);
+        auto pdf_obj = m->pdf(wi, wo, n);
  
         auto obj_inter = Scene::intersect(Ray(p, wi));
         // if ray hit a non-emitting object
         if (obj_inter.happened && !obj_inter.obj->hasEmit()) {
             // TODO:
-            auto f_r = m->eval(wo, wi, n);
+            auto f_r = m->eval(wi, wo, n);
             auto cosA = std::max(.0f, dotProduct(wi, n));
             indir_light =
                 // TODO
@@ -128,9 +130,5 @@ Vector3f shade(Intersection inter, Vector3f wo) {
 Vector3f Scene::castRay(const Ray &ray, int depth) const
 {
     // TO DO Implement Path Tracing Algorithm here
-    auto inter = Scene::intersect(ray);
-    if (!inter.happened) {
-        return Scene::backgroundColor;
-    }
-    return shade(inter, -ray.direction);
+    return shade(Scene::intersect(ray), -ray.direction);
 }
