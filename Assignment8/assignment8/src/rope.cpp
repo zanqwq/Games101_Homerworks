@@ -64,12 +64,12 @@ namespace CGL {
                 auto acceleration = m->forces / m->mass;
 
                 // 显示欧拉, 用当前速度算下一帧位置, 不稳定
-                m->position += m->velocity * delta_t;
-                m->velocity += acceleration * delta_t;
-
-                // 隐士欧拉, 用下一帧速度算下一帧位置
-                // m->velocity += acceleration * delta_t;
                 // m->position += m->velocity * delta_t;
+                // m->velocity += acceleration * delta_t;
+
+                // 隐式欧拉, 用下一帧速度算下一帧位置
+                m->velocity += acceleration * delta_t;
+                m->position += m->velocity * delta_t;
             }
 
             // Reset all forces on each mass
@@ -96,7 +96,7 @@ namespace CGL {
                 auto acceleration = m->forces / m->mass;
 
                 Vector2D next_last_pos = m->position;
-                auto damping_factor = 0.05;
+                auto damping_factor = 0.0001;
 
                 m->position = m->position + (1 - damping_factor) * (m->position - m->last_position) + acceleration * delta_t * delta_t;
                 m->last_position = next_last_pos;
@@ -104,6 +104,9 @@ namespace CGL {
                 
                 // TODO (Part 4): Add global Verlet damping
             }
+
+            // Reset all forces on each mass
+            m->forces = Vector2D(0, 0);
         }
     }
 }
