@@ -38,12 +38,12 @@ namespace CGL {
             auto posA = a->position, posB = b->position;
             auto vecA2B = (posB - posA).unit();
             auto lenDelta = (posB - posA).norm() - s->rest_length;
-            auto fA2B = k * vecA2B * lenDelta;
-            a->forces = fA2B;
-            b->forces = -fA2B;
+            auto f_a = k * vecA2B * lenDelta;
+            a->forces = f_a;
+            b->forces = -f_a;
 
             // internal spring damping
-            auto k_d = 0.5;
+            auto k_d = 0.01;
             auto f_d = -k_d * dot(b->velocity - a->velocity, vecA2B) * vecA2B;
             a->forces += f_d;
             b->forces += -f_d;
@@ -57,11 +57,12 @@ namespace CGL {
                 m->forces += gravity * m->mass;
 
                 // TODO (Part 2): Add global damping
-                auto k_d = 0.5;
+                auto k_d = 0.01;
                 m->forces += -k_d * m->velocity;
 
-                auto acceleration = m->forces / m->mass;
+                auto acceleration = m->forces.norm() / m->mass;
 
+                // 显示欧拉, 用当前速度算下一帧位置
                 m->position += m->velocity * delta_t;
                 m->velocity += acceleration * delta_t;
             }
