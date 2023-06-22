@@ -60,7 +60,7 @@ namespace CGL {
                 auto k_d = 0.01;
                 m->forces += -k_d * m->velocity;
 
-                auto acceleration = m->forces.norm() / m->mass;
+                auto acceleration = m->forces / m->mass;
 
                 // 显示欧拉, 用当前速度算下一帧位置
                 m->position += m->velocity * delta_t;
