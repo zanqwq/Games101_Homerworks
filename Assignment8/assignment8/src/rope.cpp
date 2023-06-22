@@ -39,8 +39,9 @@ namespace CGL {
             auto vecA2B = (posB - posA).unit();
             auto lenDelta = (posB - posA).norm() - s->rest_length;
             auto f_a = k * vecA2B * lenDelta;
-            a->forces = f_a;
-            b->forces = -f_a;
+            // why plus equal rather than equal, because a mass might be connected with two springs
+            a->forces += f_a;
+            b->forces += -f_a;
 
             // internal spring damping
             auto k_d = 0.01;
@@ -62,9 +63,13 @@ namespace CGL {
 
                 auto acceleration = m->forces / m->mass;
 
-                // 显示欧拉, 用当前速度算下一帧位置
+                // 显示欧拉, 用当前速度算下一帧位置, 不稳定
                 m->position += m->velocity * delta_t;
                 m->velocity += acceleration * delta_t;
+
+                // 隐士欧拉, 用下一帧速度算下一帧位置
+                // m->velocity += acceleration * delta_t;
+                // m->position += m->velocity * delta_t;
             }
 
             // Reset all forces on each mass
